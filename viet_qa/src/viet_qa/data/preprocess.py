@@ -3,12 +3,23 @@ from typing import Dict, Any, List
 def preprocess_extractive(example: Dict[str, Any]) -> Dict[str, Any]:
     """
     Preprocess example for Extractive QA extraction.
-    Ensures that we extract a valid span and rectifies mismatch.
+    Supports both:
+      - SQuAD-style: answers = {"text": [...], "answer_start": [...]}
+      - Flat-style (ViSpanExtractQA): answer_text = "...", answer_start = int
     """
     context = example["context"]
-    answers = example.get("answers", {})
-    text_answers = answers.get("text", [])
-    starts = answers.get("answer_start", [])
+
+    # Try SQuAD-style nested answers dict first
+    answers = example.get("answers", None)
+    if isinstance(answers, dict) and answers.get("text"):
+        text_answers = answers.get("text", [])
+        starts = answers.get("answer_start", [])
+    else:
+        # Flat format used by ntphuc149/ViSpanExtractQA
+        raw_text = example.get("answer_text", "") or ""
+        raw_start = example.get("answer_start", -1)
+        text_answers = [raw_text] if raw_text else []
+        starts = [int(raw_start) if raw_start is not None else -1] if raw_text else []
     
     valid_spans = []
     

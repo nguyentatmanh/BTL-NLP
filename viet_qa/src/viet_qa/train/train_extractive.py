@@ -74,31 +74,46 @@ def main():
     config = TrainConfig()
     
     print(f"Loading tokenizer and model: {config.MODEL_NAME}")
-    tokenizer = AutoTokenizer.from_pretrained(config.MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(config.MODEL_NAME, use_fast=True)
     model = AutoModelForQuestionAnswering.from_pretrained(config.MODEL_NAME)
     
     print("Loading datasets...")
     dataset = load_qa_dataset("all")
-    train_ds = dataset["train"].map(preprocess_extractive)
+    train_ds = dataset["train"].map(preprocess_extractive, load_from_cache_file=False)
     # Filter out empty answers for training
-    train_ds = train_ds.filter(lambda x: len(x["valid_answers"]) > 0)
+    train_ds = train_ds.filter(lambda x: len(x["valid_answers"]) > 0, load_from_cache_file=False)
+    print(f"  Train samples after filter: {len(train_ds)}")
     
-    val_ds = dataset["validation"].map(preprocess_extractive)
-    val_ds = val_ds.filter(lambda x: len(x["valid_answers"]) > 0)
+    val_ds = dataset["validation"].map(preprocess_extractive, load_from_cache_file=False)
+    val_ds = val_ds.filter(lambda x: len(x["valid_answers"]) > 0, load_from_cache_file=False)
+    print(f"  Val samples after filter: {len(val_ds)}")
+
     
     print("Tokenizing train dataset...")
     train_tokenized = train_ds.map(
         lambda x: prepare_train_features(x, tokenizer, config),
         batched=True,
-        remove_columns=train_ds.column_names
+        remove_columns=train_ds.column_names,
+        load_from_cache_file=False,
+        desc="Tokenizing train",
     )
+    print(f"  Train tokenized samples: {len(train_tokenized)}")
     
     print("Tokenizing val dataset...")
     val_tokenized = val_ds.map(
         lambda x: prepare_train_features(x, tokenizer, config),
         batched=True,
-        remove_columns=val_ds.column_names
+        remove_columns=val_ds.column_names,
+        load_from_cache_file=False,
+        desc="Tokenizing val",
     )
+    print(f"  Val tokenized samples: {len(val_tokenized)}")
+    
+    if len(train_tokenized) == 0:
+        raise ValueError(
+            "Train dataset is empty after tokenization! "
+            "Check prepare_train_features for errors or verify dataset structure."
+        )
     
     training_args = TrainingArguments(
         output_dir=config.OUTPUT_DIR,
