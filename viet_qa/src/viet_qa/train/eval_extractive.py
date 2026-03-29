@@ -31,8 +31,16 @@ def main():
     for item in tqdm(val_dataset, desc="Evaluating"):
         context = item.get("context", "")
         question = item.get("question", "")
-        answers = item.get("answers", {}).get("text", [])
-        
+
+        # ViSpanExtractQA uses flat "answer_text" field, not SQuAD-style answers.text
+        raw = item.get("answer_text", "") or item.get("answers", {})
+        if isinstance(raw, str):
+            answers = [raw] if raw else []
+        elif isinstance(raw, dict):
+            answers = raw.get("text", [])
+        else:
+            answers = list(raw) if raw else []
+
         try:
             res = model.predict(question, context)
             predictions.append(res.get("answer", ""))

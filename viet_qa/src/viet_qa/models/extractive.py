@@ -2,13 +2,22 @@ import torch
 from transformers import pipeline
 from typing import Dict, Any
 from .base import BaseQAModel
+import os
 
 class ExtractiveQAModel(BaseQAModel):
-    def __init__(self, model_name_or_path: str = "nguyenvulebinh/vi-mrc-base"):
+    # Default to the locally trained checkpoint
+    _DEFAULT_CKPT = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "checkpoints", "extractive"
+    )
+
+    def __init__(self, model_name_or_path: str = None):
         """
         Inference class that wraps `pipeline`. 
         `model_name_or_path` can be a Hub ID or a local checkpoint folder.
         """
+        if model_name_or_path is None:
+            model_name_or_path = self._DEFAULT_CKPT
         super().__init__(model_name_or_path)
         # We auto-detect cuda but fallback to cpu
         self.device = 0 if torch.cuda.is_available() else -1
