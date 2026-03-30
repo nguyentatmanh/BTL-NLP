@@ -1,90 +1,68 @@
-# Vietnamese Question Answering Benchmark
+# 🇻🇳 Vietnamese Open-Domain Question Answering System
 
-A lightweight, robust and production-like scaffolding project for comparing Extractive QA vs Generative QA (RAG/LLM) on Vietnamese texts.
+Một hệ thống Hỏi-Đáp tự động (Open-Domain QA) dành cho tiếng Việt, kết hợp giữa thuật toán tìm kiếm truyền thống và các mô hình ngôn ngữ hiện đại (Transformers & RAG).
 
-## Architecture
-- **Backend**: FastAPI for inference and evaluation endpoints.
-- **Frontend**: Streamlit UI for side-by-side comparison of QA models.
-- **Models**:
-  - Extractive QA: e.g., `thewolfstar1/qa-vietnamese-model` or `nguyenvulebinh/vi-mrc-base`
-  - Generative QA: e.g., `Qwen/Qwen2.5-1.5B-Instruct`
-- **Dataset**: `ntphuc149/ViSpanExtractQA` from Hugging Face.
-- **Evaluation**: Exact Match (EM), Macro F1, and Latency tracking.
+## 🚀 Tính năng nổi bật
+- **Kiến trúc Retriever-Reader:** Tự động tìm kiếm ngữ cảnh dựa trên bộ dữ liệu hơn 26,000 đoạn văn bản.
+- **Hybrid Search:** Sử dụng thuật toán **BM25** (Best Matching 25) cho tốc độ truy xuất cực nhanh.
+- **Đa mô hình Reader:**
+  - **Extractive QA:** Sử dụng **XLM-RoBERTa** được fine-tune chuyên biệt trên tiếng Việt để trích xuất đáp án chính xác từ văn bản.
+  - **Generative QA (RAG):** Sử dụng **Qwen2.5-1.5B-Instruct** để tổng hợp câu trả lời tự nhiên, đầy đủ ngữ pháp.
+- **Giao diện trực quan:** Streamlit Dashboard hỗ trợ so sánh song song 2 mô hình, hiển thị tốc độ phản hồi (Latency) và điểm tự tin (Confidence).
 
-## Usage Instructions
+## 📊 Kết quả Đánh giá (Metrics)
+Đánh giá trên 500 mẫu (validation set) của tập dữ liệu `ViSpanExtractQA`:
 
-### 1. Setup Environment
+| Metric | Extractive Model (XLM-R) |
+| :--- | :--- |
+| **Exact Match (EM)** | **0.5160** |
+| **F1 Score** | **0.7150** |
+| **Avg Latency** | ~185ms |
 
-Create a virtual environment and install dependencies:
+## 🛠 Cài đặt
 
+1. **Clone project:**
+   ```bash
+   git clone https://github.com/nguyentatmanh/BTL-NLP.git
+   cd BTL-NLP
+   ```
+
+2. **Khởi tạo môi trường:**
+   ```bash
+   conda create -n vietqa python=3.10
+   conda activate vietqa
+   pip install -r requirements.txt
+   ```
+
+3. **Tải Model đã Train:**
+   *Hiện tại thư mục `src/viet_qa/checkpoints/` bị bỏ qua trên GitHub do dung lượng lớn (>1GB). Bạn chỉ cần chạy lệnh sau để tự động tải và giải nén:*
+   ```bash
+   python src/viet_qa/utils/download_weights.py
+   ```
+
+## 🖥 Cách chạy hệ thống
+
+### 1. Khởi chạy Backend (API)
+Mở terminal 1:
 ```bash
-cd "d:/BTL NLP/viet_qa"
-python -m venv venv
-# Activate the virtual environment:
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-# source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 2. Run the FastAPI Backend
-
-The backend exposes prediction and evaluation endpoints.
-
-```bash
-# Run from the project root directory
+set PYTHONPATH=%cd%\src
 uvicorn src.viet_qa.api.main:app --reload --port 8000
 ```
-Swagger UI will be available at: http://localhost:8000/docs
 
-### 3. Run the Streamlit UI
-
-In a new terminal (with the virtual environment activated), start the UI:
-
+### 2. Khởi chạy Frontend (UI)
+Mở terminal 2:
 ```bash
-# Set PYTHONPATH if needed, usually running from root is sufficient
 streamlit run src/viet_qa/ui/app.py
 ```
-The UI typically starts on http://localhost:8501
 
-### 4. Training Extractive QA Model Locally
+## 📂 Cấu trúc thư mục
+- `src/viet_qa/api/`: Chứa mã nguồn FastAPI điều phối hệ thống.
+- `src/viet_qa/models/`: Định nghĩa các lớp Retriever, Extractive và Generative.
+- `src/viet_qa/ui/`: Giao diện Streamlit người dùng.
+- `src/viet_qa/train/`: Scripts huấn luyện và đánh giá mô hình.
 
-You can fine-tune your own extractive QA model (e.g. PhoBERT) using our training pipeline. The configuration holds the hyperparameters (batch size, learning rate, checkpoint location). See `src/viet_qa/config/train_config.py`.
+## 🤝 CONTRIBUTING
+Mọi đóng góp hoặc báo lỗi xin vui lòng tạo Issue hoặc gửi Pull Request trên GitHub.
 
-```bash
-# Set PYTHONPATH so the imports work correctly
-export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-# Windows equivalent:
-# set PYTHONPATH=%cd%\src
-
-# Run the training script (downloads dataset, prepares sliding-window features, and trains)
-python -m viet_qa.train.train_extractive
-```
-
-### 5. Evaluating Extractive QA Checkpoints
-
-After training, you can evaluate your specific checkpoint.
-
-```bash
-# Evaluate the final trained checkpoint (or any HuggingFace Repo ID)
-python -m viet_qa.train.eval_extractive --model_path "checkpoints/extractive" --samples 500
-```
-
-### 6. Docker & Testing
-
-Run the entire suite seamlessly isolated via Docker Compose:
-```bash
-docker-compose up --build
-```
-This automatically spins up the API backend on port `8000` and the Streamlit UI on port `8501`. 
-
-To run the unit and smoke tests locally:
-```bash
-pip install pytest httpx
-export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-# Windows equivalent: set PYTHONPATH=%cd%\src
-pytest tests/
-```
-
+---
+© 2026 - [Nguyen Tat Manh]
