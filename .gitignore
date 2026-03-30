@@ -2,22 +2,41 @@
 __pycache__/
 *.py[cod]
 *$py.class
-venv/
-.env
+*.pyc
+*.pyo
+*.pyd
 
-# Large model files & checkpoints (MUST IGNORE)
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv/
+
+# Project specific - MUST IGNORE large files
 src/viet_qa/checkpoints/
+viet_qa/src/viet_qa/checkpoints/
 *.safetensors
 *.bin
+*.pt
+*.pth
+*.h5
 *.model
 sentencepiece.bpe.model
-*.h5
 
-# OS
+# Logs and temporary files
+*.log
+logs/
+
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE and editor files
 .vscode/
 .idea/
 .gemini/
+
+# Bytecode and cache
+__pycache__/
+*.pyc
