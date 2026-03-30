@@ -84,6 +84,13 @@ question = st.text_input(
     placeholder="ai là hiệu trưởng đầu tiên của đại học bách khoa hà nội",
 )
 
+reader_type = st.radio(
+    "**🧠 Chọn Bộ Não Trả Lời (Reader Engine)**",
+    options=["extractive", "generative"],
+    format_func=lambda x: "Extractive (Mô hình bạn tự Train - Trích xuất đoạn mã 100% y hệt gốc)" if x == "extractive" else "Generative (LLM Qwen - Đọc hiểu, tổng hợp đầy đủ họ tên như con người)",
+    horizontal=True
+)
+
 if st.button("🔍 Trả lời", use_container_width=True):
     if not question.strip():
         st.warning("Vui lòng nhập câu hỏi.")
@@ -92,8 +99,8 @@ if st.button("🔍 Trả lời", use_container_width=True):
             try:
                 res = requests.post(
                     f"{API_URL}/ask",
-                    json={"question": question, "top_k": 3},
-                    timeout=60,
+                    json={"question": question, "top_k": 3, "model_type": reader_type},
+                    timeout=120,
                 )
                 if res.status_code == 200:
                     data = res.json()

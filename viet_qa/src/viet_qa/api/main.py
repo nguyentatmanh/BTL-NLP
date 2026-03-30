@@ -51,6 +51,7 @@ class QARequest(BaseModel):
 class AskRequest(BaseModel):
     question: str
     top_k: int = 3
+    model_type: str = "extractive"
 
 class CandidateResult(BaseModel):
     rank: int
@@ -59,6 +60,7 @@ class CandidateResult(BaseModel):
     reader_score: float
     retriever_score: float
     context_snippet: str
+    full_context: str = ""
 
 class AskResponse(BaseModel):
     answer: str
@@ -119,15 +121,18 @@ def ask_question(req: AskRequest):
         raise HTTPException(status_code=503, detail="Retriever chưa sẵn sàng.")
 
     search_results = retriever.search(req.question, top_k=req.top_k)
-    model = get_model("extractive")
+    model = get_model(req.model_type)
 
     candidates = []
     for rank, (idx, ret_score, context) in enumerate(search_results, 1):
         try:
             res = model.predict(req.question, context)
             reader_score = res.get("confidence", 0.0)
-            # Final score = weighted combination
-            final_score = 0.5 * ret_score + 0.5 * reader_score
+            
+            # Khắc phục sai sót: Reader thường hay "tự tin thái quá" vào ngữ cảnh sai.
+            # Dùng trọng số 60% cho bài toán tìm kiếm (Retriever) và 40% cho người đọc (Reader).
+            final_score = 0.6 * ret_score + 0.4 * reader_score
+            
             candidates.append(CandidateResult(
                 rank=rank,
                 answer=res.get("answer", ""),
@@ -135,12 +140,14 @@ def ask_question(req: AskRequest):
                 reader_score=round(reader_score, 3),
                 retriever_score=round(ret_score, 3),
                 context_snippet=context[:200] + "..." if len(context) > 200 else context,
+                full_context=context,
             ))
         except Exception:
             candidates.append(CandidateResult(
                 rank=rank, answer="Error", final_score=0.0,
                 reader_score=0.0, retriever_score=round(ret_score, 3),
                 context_snippet=context[:200],
+                full_context=context,
             ))
 
     # Sort by final_score descending
@@ -159,7 +166,7 @@ def ask_question(req: AskRequest):
         answer=best.answer if best else "Không tìm thấy",
         final_score=best.final_score if best else 0.0,
         status=status,
-        best_context=next((s[2] for s in search_results if True), ""),
+        best_context=best.full_context if best else "",
         candidates=candidates,
     )
 
