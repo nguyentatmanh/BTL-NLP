@@ -6,12 +6,12 @@ class TrainConfig:
     MODEL_NAME = "xlm-roberta-base"
 
     # Text tokenization
-    MAX_SEQ_LENGTH = 384
-    STRIDE = 128
+    MAX_SEQ_LENGTH = 448
+    STRIDE = 160
 
     # Training hyperparameters
     LEARNING_RATE = 2e-5
-    NUM_EPOCHS = 3
+    NUM_EPOCHS = 4
     BATCH_SIZE = 4
     WEIGHT_DECAY = 0.01
 
