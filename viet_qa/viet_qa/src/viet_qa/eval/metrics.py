@@ -1,21 +1,17 @@
 import string
 import re
 import time
-import unicodedata
 from typing import List, Dict
 
 def normalize_text(text: str) -> str:
-    """Lower text, normalize Unicode, remove punctuation and extra whitespace."""
+    """Lower text and remove punctuation, articles and extra whitespace."""
     if not text:
         return ""
-    # Chuẩn hóa về chuỗi Unicode NFC (tốt nhất cho tiếng Việt)
-    text = unicodedata.normalize("NFC", str(text)).lower().strip()
+    text = text.lower()
     
-    # Loại bỏ dấu câu bằng phân loại category Unicode (Tránh lỗi mất dấu cấu Việt ngữ nếu dùng string.punctuation thô)
-    text = "".join(
-        ch for ch in text
-        if not unicodedata.category(ch).startswith("P")
-    )
+    # Remove punctuation
+    exclude = set(string.punctuation)
+    text = "".join(ch for ch in text if ch not in exclude)
     
     # Remove extra whitespace
     text = re.sub(r'\s+', ' ', text).strip()

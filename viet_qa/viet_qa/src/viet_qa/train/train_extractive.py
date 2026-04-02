@@ -124,7 +124,7 @@ def main():
 
     training_args = TrainingArguments(
         output_dir=config.OUTPUT_DIR,
-        eval_strategy="epoch",
+        evaluation_strategy="epoch",
         save_strategy="epoch",
         learning_rate=config.LEARNING_RATE,
         per_device_train_batch_size=config.BATCH_SIZE,

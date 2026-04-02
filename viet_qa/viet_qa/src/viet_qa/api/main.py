@@ -129,19 +129,9 @@ def ask_question(req: AskRequest):
             res = model.predict(req.question, context)
             reader_score = res.get("confidence", 0.0)
             
-            # Thuật toán vá lỗi Extractive (Keyword Matching Heuristic):
-            # Ép mô hình tụt điểm nếu nhắm trúng đoạn văn không có các từ khóa quyết định
-            if req.model_type == "extractive":
-                q_lower = req.question.lower()
-                c_lower = context.lower()
-                critical_keywords = ["đầu tiên", "cuối cùng", "duy nhất", "lớn nhất", "nhỏ nhất", "đầu kỷ", "sớm nhất"]
-                for kw in critical_keywords:
-                    if kw in q_lower and kw not in c_lower:
-                        reader_score *= 0.4  # Cắt thẳng 60% sự tự tin
-            
             # Khắc phục sai sót: Reader thường hay "tự tin thái quá" vào ngữ cảnh sai.
-            rank_penalty = (rank - 1) * 0.1  # Phạt rank 2 đi 0.1, rank 3 đi 0.2
-            final_score = (0.5 * ret_score + 0.5 * reader_score) - rank_penalty
+            # Dùng trọng số 60% cho bài toán tìm kiếm (Retriever) và 40% cho người đọc (Reader).
+            final_score = 0.6 * ret_score + 0.4 * reader_score
             
             candidates.append(CandidateResult(
                 rank=rank,
