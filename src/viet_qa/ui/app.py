@@ -56,14 +56,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("HỆ THỐNG HỎI ĐÁP TIẾNG VIỆT TỰ ĐỘNG")
-st.markdown("*Hệ thống sử dụng kiến trúc Retriever-Reader. Retriever: BM25. Reader: XLM-RoBERTa (Extractive) & Qwen2.5 (Generative RAG).*")
+st.markdown("*Hệ thống sử dụng kiến trúc Retriever-Reader với BM25 Retriever, XLM-RoBERTa Extractive Reader và Qwen2.5 Generative Reader.*")
+st.markdown("*Hệ thống được xây dựng và đánh giá trên bộ dữ liệu tiếng Việt từ dataset `ntphuc149/ViSpanExtractQA`*")
 
 st.divider()
 
 if "question_input" not in st.session_state:
     st.session_state["question_input"] = ""
 
-# --- Input ---
+# --- Khung Giao Diện Chính (Input Panel) ---
 question = st.text_input(
     "**Câu hỏi của bạn**",
     value=st.session_state["question_input"],
@@ -118,19 +119,31 @@ def render_model_result(q, model_str, title, candidate_col=None):
             
             if ans_text and ans_text != "Không tìm thấy" and ans_text != "Error":
                 import re
-                pattern = re.compile(re.escape(ans_text), re.IGNORECASE)
-                highlighted = pattern.sub(f'<span class="highlight">{ans_text}</span>', best_ctx)
+                import html
+                
+                # HTML escape để tránh việc ngữ cảnh Wikipedia chứa dấu < > làm vỡ layout của trình duyệt
+                safe_ctx = html.escape(best_ctx)
+                safe_ans = html.escape(ans_text)
+                
+                pattern = re.compile(re.escape(safe_ans), re.IGNORECASE)
+                highlighted = pattern.sub(f'<span class="highlight">{safe_ans}</span>', safe_ctx)
+                
+                # Để cho văn bản dễ đọc hơn, ta thay thế \n bằng thẻ <br>
+                highlighted = highlighted.replace("\n", "<br>")
+                
                 st.markdown(
                     f'<div class="best-context-box">{highlighted}</div>',
                     unsafe_allow_html=True,
                 )
             else:
+                import html
+                safe_ctx = html.escape(best_ctx).replace("\n", "<br>")
                 st.markdown(
-                    f'<div class="best-context-box">{best_ctx}</div>',
+                    f'<div class="best-context-box">{safe_ctx}</div>',
                     unsafe_allow_html=True,
                 )
                 
-            # --- Render Candidates ---
+            # --- In Bảng xếp hạng các ứng viên tiềm năng bị loại (Phục vụ debug) ---
             candidates = data.get("candidates", [])
             
             if candidate_col is None:

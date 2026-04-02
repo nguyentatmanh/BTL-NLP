@@ -31,7 +31,11 @@ class ExtractiveQAModel(BaseQAModel):
     def _predict(self, question: str, context: str) -> tuple:
         # returns dict with 'score', 'start', 'end', 'answer'
         res = self.qa_pipeline(question=question, context=context)
-        return res['answer'], res.get('score', 1.0)
+        
+        # Tiền xử lý xóa bỏ các dấu câu rác dính ở 2 đầu do Tokenizer (dấu phẩy, chấm, v.v...)
+        ans = res['answer'].strip(' ,.;:?!\n\t"\'')
+        
+        return ans, res.get('score', 1.0)
         
     def predict(self, question: str, context: str) -> Dict[str, Any]:
         (answer, score), latency_ms = self._measure_latency(self._predict, question, context)

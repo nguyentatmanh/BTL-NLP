@@ -35,25 +35,25 @@ Các thành phần chính:
 
 ## 2. Cấu trúc thư mục
 
-> Các lệnh trong README này giả định bạn làm việc trong thư mục **`viet_qa/`** của repo.
-
 ```text
 viet_qa/
 ├── src/
 │   └── viet_qa/
-│       ├── api/               # FastAPI app
+│       ├── api/               # FastAPI app (tích hợp Heuristic phạt điểm báo cáo lỗi)
 │       ├── config/            # Cấu hình train
 │       ├── data/              # Loader / preprocess dữ liệu
 │       ├── eval/              # Metrics đánh giá
-│       ├── models/            # Retriever + QA models
+│       ├── models/            # Retriever (BM25) + QA models
 │       ├── train/             # Script train / eval extractive
 │       ├── ui/                # Streamlit app
-│       ├── utils/             # Script tải weights
-│       └── checkpoints/       # Nơi lưu checkpoint local
+│       ├── utils/             # Script tải weights tự động
+│       └── checkpoints/       # Nơi lưu model safetensors
 ├── tests/                     # Test và smoke test
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
+├── generate_stats.py          # Script sinh bảng thống kê dữ liệu
+├── plot_loss.py               # Script vẽ đồ thị học tập (Loss Curve)
 └── README.md
 ```
 
@@ -293,10 +293,10 @@ So sánh đầu ra giữa hai mô hình trên cùng một câu hỏi/ngữ cản
 Pipeline train extractive hiện dùng cấu hình trong `src/viet_qa/config/train_config.py`:
 
 - model backbone: `xlm-roberta-base`
-- `MAX_SEQ_LENGTH = 384`
-- `STRIDE = 128`
+- `MAX_SEQ_LENGTH = 448`
+- `STRIDE = 160`
 - `LEARNING_RATE = 2e-5`
-- `NUM_EPOCHS = 3`
+- `NUM_EPOCHS = 4`
 - `BATCH_SIZE = 4`
 - output checkpoint: `src/viet_qa/checkpoints/extractive`
 
@@ -315,20 +315,36 @@ Script train sẽ:
 
 ---
 
-## 10. Đánh giá mô hình Extractive QA
+## 10. Đánh giá và Phân tích Mô hình
 
-Sau khi train xong hoặc khi đã có sẵn checkpoint local, bạn có thể đánh giá như sau:
+### 10.1. Đánh giá mô hình Extractive QA
+Sau khi đã có model local, kiểm tra điểm Exact Match (EM) và F1 trên tập validation:
 
 ```bash
-python -m viet_qa.train.eval_extractive --model_path "src/viet_qa/checkpoints/extractive" --samples 500
+python -m viet_qa.train.eval_extractive --model_path "src/viet_qa/checkpoints/extractive" --samples 5000
 ```
 
-Ý nghĩa tham số:
+### 10.2. Đánh giá mô hình Generative QA
+Để xem mô hình sinh ngôn ngữ lớn đọc hiểu như thế nào:
 
-- `--model_path`: đường dẫn checkpoint local hoặc tên model trên Hugging Face Hub
-- `--samples`: số mẫu validation dùng để đánh giá
+```bash
+python src/viet_qa/eval/run_evaluation.py --model_type generative --samples 500
+```
 
-Script eval sẽ tính các metric QA và thống kê độ trễ suy luận trung bình.
+### 10.3. Đồ thị quá trình rèn luyện (Learning Curve)
+Sau khi train xong, bạn có thể xuất báo cáo đồ thị Train/Validation Loss thông qua file Log sinh ra ở trên Kaggle bằng lệnh:
+
+```bash
+python plot_loss.py
+```
+> Script sẽ tự động sinh file `loss_report.md` và `loss_chart.png` dùng trực tiếp cho báo cáo khóa luận.
+
+### 10.4. Khảo sát dữ liệu thô
+Sử dụng script sau để lấy bảng thống kê kích thước context, độ rải rác câu hỏi (phục vụ lấy mốc 448 Token):
+
+```bash
+python generate_stats.py
+```
 
 ---
 
