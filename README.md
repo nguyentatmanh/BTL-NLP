@@ -136,6 +136,8 @@ src/viet_qa/checkpoints/extractive
 https://drive.google.com/file/d/1viAih2eZk7X8C1BO7YW4zh_fusDfrzcA/view?usp=drive_link
 ```
 
+## ĐỪNG TẢI MODEL NÀY VỀ TỪ LINK DRIVE TRÊN, SẮP TỚI SẼ UPDATE MODEL MỚI LÊN!!!
+
 ### Nếu tải bằng script bị lỗi
 
 Một số nguyên nhân thường gặp:
