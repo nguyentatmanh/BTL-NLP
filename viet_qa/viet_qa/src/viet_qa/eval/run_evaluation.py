@@ -45,7 +45,8 @@ def main():
 
         try:
             res = model.predict(question, context)
-            predictions.append(res.get("answer", ""))
+            ans = res.get("answer", "")
+            predictions.append(ans)
             references.append(answers)
             latencies.append(res.get("latency_ms", 0))
         except Exception as e:

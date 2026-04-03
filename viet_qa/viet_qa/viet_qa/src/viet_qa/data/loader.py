@@ -3,14 +3,12 @@ from typing import Dict, Any, List, Union
 
 def load_qa_dataset(split: str = "all", max_samples: int = None) -> Union[Any, DatasetDict]:
     """
-    Hàm tĩnh để tải bộ dữ liệu (dataset) ViSpanExtractQA từ HuggingFace Hub.
-    
-    Tham số:
-        split: Tên tập dữ liệu con cần tải ('train', 'validation', 'test' hoặc 'all').
-        max_samples: Số lượng mẫu giới hạn để tải (Hữu ích khi test nhanh để không tốn RAM).
-        
-    Đầu ra:
-        Dataset hoặc DatasetDict chứa các mẫu hỏi-đáp.
+    Loads the ntphuc149/ViSpanExtractQA dataset.
+    Args:
+        split: 'train', 'validation', 'test', or 'all'.
+        max_samples: Optional limit on the number of samples to load.
+    Returns:
+        HuggingFace Dataset or DatasetDict object.
     """
     if split == "all":
         dataset = load_dataset("ntphuc149/ViSpanExtractQA")
@@ -26,8 +24,8 @@ def load_qa_dataset(split: str = "all", max_samples: int = None) -> Union[Any, D
 
 def format_example(example: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Hàm chuẩn hóa lại định dạng của dữ liệu thô.
-    Lọc và giữ lại đúng các trường thiết yếu: 'id', 'question', 'context', 'answers'.
+    Standardize example format.
+    The dataset usually contains 'question', 'context', and 'answers'.
     """
     answers = example.get("answers", {"text": []})
     text_answers = answers.get("text", [])

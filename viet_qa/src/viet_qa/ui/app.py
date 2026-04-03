@@ -64,7 +64,7 @@ st.divider()
 if "question_input" not in st.session_state:
     st.session_state["question_input"] = ""
 
-# --- Input ---
+# --- Khung Giao Diện Chính (Input Panel) ---
 question = st.text_input(
     "**Câu hỏi của bạn**",
     value=st.session_state["question_input"],
@@ -143,7 +143,7 @@ def render_model_result(q, model_str, title, candidate_col=None):
                     unsafe_allow_html=True,
                 )
                 
-            # --- Render Candidates ---
+            # --- In Bảng xếp hạng các ứng viên tiềm năng bị loại (Phục vụ debug) ---
             candidates = data.get("candidates", [])
             
             if candidate_col is None:

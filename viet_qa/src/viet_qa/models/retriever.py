@@ -4,12 +4,11 @@ from typing import List, Tuple
 import time
 import re
 
-
 class TfidfRetriever:
     """
-    Upgraded to BM25 Retriever!
-    We keep the class name `TfidfRetriever` so we don't break main.py.
-    BM25 provides significantly better recall for question answering term-matching.
+    Module Truy hồi Ngữ cảnh (Retriever): Sử dụng thuật toán BM25.
+    (Lưu ý: Tên class vẫn gán là TfidfRetriever nhằm đảm bảo tính tương thích với API).
+    BM25 khắc phục hoàn toàn điểm yếu thống kê từ thông dụng của TF-IDF, đem lại độ Recall cực kỳ ổn định cho QA.
     """
 
     def __init__(self):
@@ -18,28 +17,28 @@ class TfidfRetriever:
         self._is_built = False
 
     def _tokenize(self, text: str) -> List[str]:
-        """Basic whitespace and punctuation tokenization."""
+        """Tiền xử lý thô: Ép chữ thường, lược bỏ dấu câu và tách thành từng từ khóa rời rạc."""
         text = text.lower()
-        # Remove punctuation, split by whitespace
+        # Tìm tất cả các cụm từ dính nhau, lược bỏ các khoảng trắng và dấu câu
         tokens = re.findall(r'\b\w+\b', text)
         return tokens
 
     def build_index(self, contexts: List[str]):
-        """Build BM25 index from a list of context strings."""
+        """Cào toàn bộ danh sách ngữ cảnh từ Dataset và Index vào hệ thống của BM25."""
         start = time.perf_counter()
         
-        # Tokenize all contexts for BM25
-        print("  Tokenizing contexts for BM25...")
+        # Băm nhỏ tất cả các đoạn văn bản thành danh sách token
+        print("  Tiến hành Tokenize mảng ngữ cảnh cho BM25...")
         tokenized_corpus = [self._tokenize(ctx) for ctx in contexts]
         
-        print("  Building BM25 index...")
+        print("  Đang khởi tạo nhân BM25...")
         self.bm25_model = BM25Okapi(tokenized_corpus)
         
         self.contexts = contexts
         self._is_built = True
         
         elapsed = time.perf_counter() - start
-        print(f"  BM25 index built: {len(contexts)} contexts in {elapsed:.2f}s")
+        print(f"  Hoàn tất cắm mốc BM25: {len(contexts)} văn bản trong {elapsed:.2f} giây")
 
     @property
     def is_built(self) -> bool:
@@ -47,27 +46,25 @@ class TfidfRetriever:
 
     def search(self, query: str, top_k: int = 3) -> List[Tuple[int, float, str]]:
         """
-        Search for top-k most relevant contexts for the given query using BM25.
-        Returns list of (index, normalized_score, context_text).
+        Dò tìm Top-K kết quả ngữ cảnh có tương quan lớn nhất đối với câu hỏi gốc.
+        Đầu ra là danh sách mảng Bộ ba: Vị trí (Index), Điểm số (Score), Nguyên văn ngữ cảnh.
         """
         if not self._is_built:
-            raise RuntimeError("Index not built. Call build_index() first.")
+            raise RuntimeError("Chưa khởi tạo Index. Vui lòng chạy hàm build_index() trước.")
 
         tokenized_query = self._tokenize(query)
         
-        # Get raw BM25 scores
+        # Nhờ BM25 chấm điểm toàn bộ kho dữ liệu
         doc_scores = self.bm25_model.get_scores(tokenized_query)
         
-        # Normalize BM25 scores to 0-1 range so it plays nicely with reader_score
-        # Basic min-max scaling mapped to 0-1, or just divide by max if max > 0
+        # Chuẩn hóa phổ điểm về dải 0.0 -> 1.0 (Giúp đồng bộ với điểm Confidence của mô hình QA)
         max_score = np.max(doc_scores)
         if max_score > 0:
             normalized_scores = doc_scores / max_score
         else:
             normalized_scores = doc_scores
 
-        # Get top-k indices sorted by score descending
-        # np.argsort returns ascending, so we slice [::-1]
+        # Lấy Top K giá trị bự nhất (Hàm argsort mặc định chia từ nhỏ đến lớn, dán [::-1] để đảo ngược lại)
         top_indices = np.argsort(normalized_scores)[::-1][:top_k]
 
         results = []

@@ -16,13 +16,9 @@ dataset_contexts: List[str] = []
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Hàm Vòng đời (Lifespan) của API Server.
-    Tự động chạy MỘT LẦN DUY NHẤT khi cắm điện bật Server.
-    Mục đích: Tải toàn bộ Data (Dataset) vào bộ nhớ RAM và xây dựng bộ máy tìm kiếm cục bộ (BM25 Index).
-    """
+    """Load dataset and build TF-IDF index on startup."""
     global dataset_contexts
-    print("Loading dataset and building BM25 index...")
+    print("Loading dataset and building TF-IDF index...")
     try:
         from viet_qa.data.loader import load_qa_dataset
         dataset = load_qa_dataset("all")
@@ -118,42 +114,24 @@ def health_check():
 @app.post("/ask", response_model=AskResponse)
 def ask_question(req: AskRequest):
     """
-    API Cốt lõi của Bài Tập Lớn (Open-domain QA).
-    Nhiệm vụ:
-    1. Lấy câu hỏi từ người dùng.
-    2. Gọi Retriever (BM25) để bới tung Dataset tìm ra Top-K đoạn văn chứa manh mối.
-    3. Đưa Top-K đoạn văn đó qua Reader (Extractive/Generative).
-    4. Cân đo đong đếm điểm chung cuộc (Final Score) để trao cúp cho đáp án tốt nhất.
+    Open-domain QA: chỉ cần câu hỏi.
+    Retriever tìm top-k context → Reader trích xuất đáp án → trả kết quả tốt nhất.
     """
     if not retriever.is_built:
         raise HTTPException(status_code=503, detail="Retriever chưa sẵn sàng.")
 
-    # Tìm Top K văn bản nghi phạm (Top-K Contexts)
     search_results = retriever.search(req.question, top_k=req.top_k)
-    
-    # Lấy lính đánh thuê tương ứng (Extractive hoặc Generative)
     model = get_model(req.model_type)
 
     candidates = []
-    # Duyệt qua từng nghi phạm để ép cung (Extractive Extract / Generative Generate)
     for rank, (idx, ret_score, context) in enumerate(search_results, 1):
         try:
             res = model.predict(req.question, context)
             reader_score = res.get("confidence", 0.0)
             
-            # Thuật toán vá lỗi Extractive (Keyword Matching Heuristic):
-            # Ép mô hình tụt điểm nếu nhắm trúng đoạn văn không có các từ khóa quyết định
-            if req.model_type == "extractive":
-                q_lower = req.question.lower()
-                c_lower = context.lower()
-                critical_keywords = ["đầu tiên", "cuối cùng", "duy nhất", "lớn nhất", "nhỏ nhất", "đầu kỷ", "sớm nhất"]
-                for kw in critical_keywords:
-                    if kw in q_lower and kw not in c_lower:
-                        reader_score *= 0.4  # Cắt thẳng 60% sự tự tin
-            
             # Khắc phục sai sót: Reader thường hay "tự tin thái quá" vào ngữ cảnh sai.
-            rank_penalty = (rank - 1) * 0.1  # Phạt rank 2 đi 0.1, rank 3 đi 0.2
-            final_score = (0.5 * ret_score + 0.5 * reader_score) - rank_penalty
+            # Dùng trọng số 60% cho bài toán tìm kiếm (Retriever) và 40% cho người đọc (Reader).
+            final_score = 0.6 * ret_score + 0.4 * reader_score
             
             candidates.append(CandidateResult(
                 rank=rank,
