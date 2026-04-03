@@ -74,7 +74,7 @@ question = st.text_input(
 reader_type = st.radio(
     "**🧠 Chọn Chế Độ Trả Lời (Reader Engine)**",
     options=["extractive", "generative", "both"],
-    format_func=lambda x: "Chỉ chạy Extractive (Mô hình Train)" if x == "extractive" else ("Chỉ chạy Generative (Qwen1.5B)" if x == "generative" else "🚀 Chạy Song Song Cả 2 (So Sánh Tốc độ/Chất lượng)"),
+    format_func=lambda x: "Chỉ chạy Extractive (Mô hình Train)" if x == "extractive" else ("Chỉ chạy Generative (Qwen2.5)" if x == "generative" else "🚀 Chạy Song Song Cả 2 (So Sánh Tốc độ/Chất lượng)"),
     horizontal=True
 )
 

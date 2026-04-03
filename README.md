@@ -25,8 +25,8 @@ Luồng xử lý chính của hệ thống:
 
 Các thành phần chính:
 
-- **Retriever**: lớp `TfidfRetriever`, hiện đã được nâng cấp để dùng **BM25**.
-- **Extractive Reader**: mô hình fine-tune từ `xlm-roberta-base`.
+- **Retriever**: lớp `BM25Retriever`, dùng **BM25** để truy hồi ngữ cảnh liên quan.
+- **Extractive Reader**: backbone `xlm-roberta-base`, được fine-tune cho extractive QA.
 - **Generative Reader**: mặc định dùng `Qwen/Qwen2.5-1.5B-Instruct`.
 - **API**: các endpoint như `/health`, `/ask`, `/predict/extractive`, `/predict/generative`, `/compare`.
 - **UI**: giao diện Streamlit để chạy demo và quan sát kết quả.
@@ -162,7 +162,9 @@ src/viet_qa/checkpoints/extractive
 
 ### 6.1. Thiết lập `PYTHONPATH`
 
-Để import package ổn định khi chạy từ thư mục `viet_qa/`, hãy thêm `src` vào `PYTHONPATH`.
+Để import package ổn định, `PYTHONPATH` phải trỏ tới thư mục chứa package `viet_qa`, tức là thư mục `src`.
+
+Nếu bạn đang đứng trong thư mục `viet_qa/`:
 
 #### Windows (CMD)
 
@@ -182,12 +184,32 @@ $env:PYTHONPATH = "$PWD\src"
 export PYTHONPATH="$(pwd)/src"
 ```
 
+Nếu bạn đang đứng ở repo gốc:
+
+#### Windows (CMD)
+
+```bash
+set PYTHONPATH=%cd%\viet_qa\src
+```
+
+#### Windows (PowerShell)
+
+```powershell
+$env:PYTHONPATH = "$PWD\viet_qa\src"
+```
+
+#### Linux / macOS
+
+```bash
+export PYTHONPATH="$(pwd)/viet_qa/src"
+```
+
 ---
 
 ### 6.2. Chạy backend FastAPI
 
 ```bash
-uvicorn src.viet_qa.api.main:app --reload --port 8000
+python -m uvicorn viet_qa.api.main:app --reload --port 8000
 ```
 
 Sau khi chạy thành công:
@@ -211,6 +233,12 @@ Mở terminal mới, kích hoạt lại môi trường ảo rồi chạy:
 
 ```bash
 streamlit run src/viet_qa/ui/app.py
+```
+
+Nếu bạn đang đứng ở repo gốc thì dùng:
+
+```bash
+streamlit run viet_qa/src/viet_qa/ui/app.py
 ```
 
 Giao diện thường mở tại:
@@ -292,7 +320,7 @@ So sánh đầu ra giữa hai mô hình trên cùng một câu hỏi/ngữ cản
 
 Pipeline train extractive hiện dùng cấu hình trong `src/viet_qa/config/train_config.py`:
 
-- model backbone: `xlm-roberta-base`
+- extractive backbone: `xlm-roberta-base`
 - `MAX_SEQ_LENGTH = 448`
 - `STRIDE = 160`
 - `LEARNING_RATE = 2e-5`
@@ -386,7 +414,7 @@ http://localhost:8000
 Nếu frontend báo lỗi kết nối, kiểm tra lại lệnh:
 
 ```bash
-uvicorn src.viet_qa.api.main:app --reload --port 8000
+python -m uvicorn viet_qa.api.main:app --reload --port 8000
 ```
 
 ### 3. Lỗi import module `viet_qa`
@@ -403,6 +431,12 @@ hoặc:
 
 ```bash
 export PYTHONPATH="$(pwd)/src"
+```
+
+Nếu bạn đang chạy từ repo gốc thì dùng:
+
+```bash
+set PYTHONPATH=%cd%\viet_qa\src
 ```
 
 ### 4. Lỗi khi tải weights từ Google Drive

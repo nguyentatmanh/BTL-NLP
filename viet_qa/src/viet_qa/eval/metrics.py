@@ -1,4 +1,4 @@
-import string
+from collections import Counter
 import re
 import time
 import unicodedata
@@ -43,13 +43,14 @@ def compute_f1(prediction: str, truth: str) -> float:
     
     if len(pred_tokens) == 0 or len(truth_tokens) == 0:
         return float(pred_tokens == truth_tokens)
-        
-    common_tokens = set(pred_tokens) & set(truth_tokens)
-    if not common_tokens:
+
+    common_tokens = Counter(pred_tokens) & Counter(truth_tokens)
+    num_same = sum(common_tokens.values())
+    if num_same == 0:
         return 0.0
-        
-    prec = len(common_tokens) / len(pred_tokens)  # Độ Chính Xác (Precision)
-    rec = len(common_tokens) / len(truth_tokens)  # Độ Bám Phủ (Recall)
+
+    prec = num_same / len(pred_tokens)  # Độ Chính Xác (Precision)
+    rec = num_same / len(truth_tokens)  # Độ Bám Phủ (Recall)
     
     # Trung bình điều hòa (Harmonic Mean)
     return 2 * (prec * rec) / (prec + rec)

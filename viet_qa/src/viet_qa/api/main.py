@@ -5,12 +5,12 @@ from contextlib import asynccontextmanager
 
 from viet_qa.models.extractive import ExtractiveQAModel
 from viet_qa.models.generative import GenerativeQAModel
-from viet_qa.models.retriever import TfidfRetriever
+from viet_qa.models.retriever import BM25Retriever
 from viet_qa.eval.metrics import evaluate_predictions
 
 # --- Global state ---
 models: Dict[str, Any] = {}
-retriever = TfidfRetriever()
+retriever = BM25Retriever()
 dataset_contexts: List[str] = []
 
 
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Vietnamese QA API",
-    description="Open-domain QA: Retriever (TF-IDF) + Reader (Extractive QA Transformer).",
+    description="Open-domain QA: Retriever (BM25) + Reader (Extractive QA Transformer).",
     lifespan=lifespan,
 )
 

@@ -4,11 +4,10 @@ from typing import List, Tuple
 import time
 import re
 
-class TfidfRetriever:
+class BM25Retriever:
     """
     Module Truy hồi Ngữ cảnh (Retriever): Sử dụng thuật toán BM25.
-    (Lưu ý: Tên class vẫn gán là TfidfRetriever nhằm đảm bảo tính tương thích với API).
-    BM25 khắc phục hoàn toàn điểm yếu thống kê từ thông dụng của TF-IDF, đem lại độ Recall cực kỳ ổn định cho QA.
+    BM25 xếp hạng ngữ cảnh theo mức độ liên quan để giữ độ recall ổn định cho QA.
     """
 
     def __init__(self):
