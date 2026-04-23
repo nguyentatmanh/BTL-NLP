@@ -182,7 +182,6 @@ py .\viet_qa\src\utils\download_kaggle_model.py --force
 Lưu ý:
 
 - Theo tài liệu Kaggle, download handle của model có dạng `<owner>/<model>/<framework>/<variation>`.
-- Link bạn cung cấp là model-level page, chưa bao gồm `framework` và `variation`.
 - Script mặc định sẽ thử handle `huynguyen199/vietnamese-open-domain/transformers/default`.
 - Nếu variation thực tế trên Kaggle khác `transformers/default`, hãy chạy lại với:
 
