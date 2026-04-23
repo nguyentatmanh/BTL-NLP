@@ -11,4 +11,5 @@ scikit-learn>=1.4.0
 rank_bm25==0.2.2
 sentencepiece>=0.1.95
 gdown>=5.1.0
+kagglehub>=1.0.0,<2.0.0
 

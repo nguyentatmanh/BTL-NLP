@@ -2,7 +2,16 @@ import json
 import os
 import matplotlib.pyplot as plt
 
-def plot_training_loss(checkpoint_dir="src/viet_qa/checkpoints/extractive", output_file="loss_chart.png"):
+def plot_training_loss(checkpoint_dir=None, output_file="loss_chart.png"):
+    if checkpoint_dir is None:
+        checkpoint_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "viet_qa",
+            "src",
+            "checkpoints",
+            "extractive",
+        )
+
     state_file = os.path.join(checkpoint_dir, "trainer_state.json")
     
     # Nếu không có ở thư mục gốc, tìm trong các thư mục checkpoint-* mới nhất

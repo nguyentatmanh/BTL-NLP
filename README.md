@@ -1,460 +1,511 @@
-# Vietnamese Open-Domain Question Answering System
+# Hệ thống Hỏi đáp Tiếng Việt
 
-Hệ thống **Hỏi - Đáp mở miền (Open-Domain QA) cho tiếng Việt**, kết hợp giữa bộ truy hồi ngữ cảnh và các mô hình đọc hiểu để trả lời câu hỏi từ tập văn bản lớn. Dự án hỗ trợ cả hai hướng tiếp cận:
+Hệ thống này là một bài toán hỏi đáp tiếng Việt theo kiến trúc Retriever-Reader. Ở tầng truy hồi, hệ thống dùng BM25 để tìm ra những ngữ cảnh phù hợp nhất trong bộ dữ liệu. Ở tầng đọc hiểu, hệ thống hỗ trợ hai chế độ:
 
-- **Extractive QA**: trích xuất câu trả lời trực tiếp từ ngữ cảnh.
-- **Generative QA**: sinh câu trả lời tự nhiên bằng mô hình ngôn ngữ.
+- `extractive`: trích xuất câu trả lời trực tiếp từ ngữ cảnh bằng mô hình QA đã fine-tune.
+- `generative`: sinh câu trả lời ngắn gọn bằng mô hình ngôn ngữ `Qwen/Qwen2.5-1.5B-Instruct`.
 
-Repo hiện gồm:
+Toàn bộ hệ thống được đóng gói thành:
 
-- **Backend FastAPI** để phục vụ suy luận và đánh giá.
-- **Frontend Streamlit** để nhập câu hỏi và so sánh kết quả.
-- **Retriever dựa trên BM25** cho bước tìm ngữ cảnh liên quan.
-- **Pipeline huấn luyện và đánh giá** cho mô hình Extractive QA.
+- API backend bằng FastAPI
+- giao diện demo bằng Streamlit
+- script train/evaluate riêng cho mô hình extractive
+- công cụ vẽ loss sau huấn luyện
 
----
+## 1. Kiến trúc tổng thể
 
-## 1. Kiến trúc hệ thống
-
-Luồng xử lý chính của hệ thống:
+Luồng xử lý chính:
 
 1. Người dùng nhập câu hỏi.
-2. Retriever tìm ra các đoạn ngữ cảnh liên quan nhất trong tập dữ liệu.
-3. Reader xử lý các ngữ cảnh đó để tìm hoặc sinh câu trả lời.
-4. Hệ thống trả về đáp án tốt nhất cùng thông tin debug/candidate.
+2. Backend nạp tập ngữ cảnh từ dataset `ntphuc149/ViSpanExtractQA`.
+3. BM25 Retriever tìm `top-k` ngữ cảnh liên quan nhất.
+4. Reader (`extractive` hoặc `generative`) suy luận câu trả lời trên từng ứng viên.
+5. Backend kết hợp điểm retriever và reader để xếp hạng lại kết quả.
+6. UI hiển thị câu trả lời tốt nhất, độ tin cậy và các candidate để debug.
 
-Các thành phần chính:
+## 2. Tính năng chính
 
-- **Retriever**: lớp `BM25Retriever`, dùng **BM25** để truy hồi ngữ cảnh liên quan.
-- **Extractive Reader**: backbone `xlm-roberta-base`, được fine-tune cho extractive QA.
-- **Generative Reader**: mặc định dùng `Qwen/Qwen2.5-1.5B-Instruct`.
-- **API**: các endpoint như `/health`, `/ask`, `/predict/extractive`, `/predict/generative`, `/compare`.
-- **UI**: giao diện Streamlit để chạy demo và quan sát kết quả.
+- Hỏi đáp mở bằng tiếng Việt trên tập ngữ cảnh lớn.
+- Hỗ trợ 2 chiến lược trả lời: trích xuất và sinh.
+- Có sẵn API `/ask`, `/predict/*`, `/compare`, `/evaluate`.
+- Có giao diện Streamlit để demo nhanh.
+- Có checkpoint extractive lưu sẵn trong repo.
+- Có script train, evaluate và trực quan hóa loss.
 
----
-
-## 2. Cấu trúc thư mục
+## 3. Cấu trúc thư mục
 
 ```text
-viet_qa/
-├── src/
-│   └── viet_qa/
-│       ├── api/               # FastAPI app (tích hợp Heuristic phạt điểm báo cáo lỗi)
-│       ├── config/            # Cấu hình train
-│       ├── data/              # Loader / preprocess dữ liệu
-│       ├── eval/              # Metrics đánh giá
-│       ├── models/            # Retriever (BM25) + QA models
-│       ├── train/             # Script train / eval extractive
-│       ├── ui/                # Streamlit app
-│       ├── utils/             # Script tải weights tự động
-│       └── checkpoints/       # Nơi lưu model safetensors
-├── tests/                     # Test và smoke test
+.
 ├── Dockerfile
 ├── docker-compose.yml
+├── plot_loss.py
 ├── requirements.txt
-├── generate_stats.py          # Script sinh bảng thống kê dữ liệu
-├── plot_loss.py               # Script vẽ đồ thị học tập (Loss Curve)
-└── README.md
+├── loss_chart.png
+├── loss_report.md
+└── viet_qa
+    ├── src
+    │   ├── api
+    │   │   └── main.py
+    │   ├── checkpoints
+    │   │   └── extractive
+    │   ├── config
+    │   │   └── train_config.py
+    │   ├── data
+    │   │   ├── loader.py
+    │   │   ├── preprocess.py
+    │   │   └── utils.py
+    │   ├── eval
+    │   │   ├── metrics.py
+    │   │   └── run_evaluation.py
+    │   ├── models
+    │   │   ├── base.py
+    │   │   ├── extractive.py
+    │   │   ├── generative.py
+    │   │   └── retriever.py
+    │   ├── train
+    │   │   ├── eval_extractive.py
+    │   │   └── train_extractive.py
+    │   ├── ui
+    │   │   └── app.py
+    │   ├── utils
+    │   │   ├── download_kaggle_model.py
+    │   │   └── download_weights.py
+    │   └── viet_qa
+    │       └── __init__.py
+    └── tests
+        ├── conftest.py
+        ├── test_api.py
+        └── test_preprocess.py
 ```
 
----
-
-## 3. Yêu cầu môi trường
+## 4. Yêu cầu hệ thống
 
 Khuyến nghị:
 
-- Python virtual environment
-- `pip`
-- Windows / Linux / macOS
-- Docker (nếu chạy bằng container)
+- Python `3.10`
+- `pip` mới
+- Docker Desktop nếu muốn chạy bằng container
+- GPU CUDA nếu muốn chạy `generative` mượt hơn
 
----
+Lưu ý quan trọng:
 
-## 4. Cài đặt dự án
+- Lần chạy đầu tiên, hệ thống có thể tải dataset từ Hugging Face.
+- Nếu dùng chế độ `generative`, mô hình `Qwen/Qwen2.5-1.5B-Instruct` sẽ được tải về ở lần đầu suy luận.
+- Nếu bạn muốn tải lại checkpoint extractive từ Kaggle, bạn cần có Kaggle API token.
+- Chạy trên CPU vẫn được, nhưng `generative` sẽ chậm đáng kể.
+- Mặc định backend dùng cổng `8000`, frontend dùng cổng `8501`.
 
-### Bước 1. Clone repo
+## 5. Cài đặt môi trường local
 
-```bash
-git clone https://github.com/nguyentatmanh/BTL-NLP.git
-cd BTL-NLP/viet_qa
-```
-
-### Bước 2. Tạo môi trường ảo
-
-#### Windows (CMD)
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-#### Windows (PowerShell)
+### Bước 0: clone repo từ GitHub
 
 ```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+git clone https://github.com/nguyentatmanh/BTL-NLP.git
+cd BTL-NLP
 ```
 
-#### Linux / macOS
+### Bước 1: tạo virtual environment
 
-```bash
-python -m venv venv
-source venv/bin/activate
+PowerShell:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-### Bước 3. Cài thư viện
+Nếu PowerShell chặn script:
 
-```bash
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+### Bước 2: cài dependency
+
+```powershell
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
+Nếu bạn muốn chạy test local:
 
-## 5. Tải model weights đã train
+```powershell
+pip install pytest httpx torchvision
+```
 
-Do thư mục checkpoint có dung lượng lớn, weights không được đẩy trực tiếp lên GitHub. Repo đã có sẵn script để tải model từ Google Drive và giải nén đúng thư mục mà hệ thống extractive đang sử dụng.
+### Bước 3: kiểm tra checkpoint
 
-Chạy lệnh:
+Repo có thể đã chứa checkpoint extractive tại:
 
-```bash
-python src/viet_qa/utils/download_weights.py
+`viet_qa/src/checkpoints/extractive`
+
+Nếu bạn clone repo mới, muốn đồng bộ lại model mới nhất từ Kaggle, hoặc muốn ghi đè checkpoint hiện có, hãy dùng downloader mới bên dưới.
+
+### Bước 4: cấu hình Kaggle API để tải model
+
+Kaggle model page:
+
+`https://www.kaggle.com/models/huynguyen199/vietnamese-open-domain`
+
+Cách 1: dùng `kaggle.json` trên Windows
+
+1. Vào `https://www.kaggle.com/settings`
+2. Ở mục `API`, bấm `Create Legacy API Key`
+3. Chép file `kaggle.json` vào:
+
+```text
+C:\Users\<TEN_USER>\.kaggle\kaggle.json
+```
+
+Cách 2: dùng biến môi trường
+
+```powershell
+$env:KAGGLE_API_TOKEN = "your_token_here"
+```
+
+### Bước 5: tải checkpoint extractive từ Kaggle
+
+```powershell
+py .\viet_qa\src\utils\download_kaggle_model.py
+```
+
+Script sẽ đồng bộ checkpoint vào:
+
+`viet_qa/src/checkpoints/extractive`
+
+Nếu bạn muốn ghi đè checkpoint hiện có:
+
+```powershell
+py .\viet_qa\src\utils\download_kaggle_model.py --force
+```
+
+Lưu ý:
+
+- Theo tài liệu Kaggle, download handle của model có dạng `<owner>/<model>/<framework>/<variation>`.
+- Link bạn cung cấp là model-level page, chưa bao gồm `framework` và `variation`.
+- Script mặc định sẽ thử handle `huynguyen199/vietnamese-open-domain/transformers/default`.
+- Nếu variation thực tế trên Kaggle khác `transformers/default`, hãy chạy lại với:
+
+```powershell
+py .\viet_qa\src\utils\download_kaggle_model.py --model-handle "huynguyen199/vietnamese-open-domain/<framework>/<variation>" --force
+```
+
+File `viet_qa/src/utils/download_weights.py` hiện được giữ lại như wrapper tương thích và sẽ gọi sang downloader Kaggle mới.
+
+## 6. Chạy hệ thống local
+
+### Cách chạy nhanh nhất
+
+Mở 2 terminal.
+
+Terminal 1: chạy API backend
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+uvicorn viet_qa.api.main:app --app-dir .\viet_qa\src --host 0.0.0.0 --port 8000 --reload
+```
+
+Terminal 2: chạy Streamlit UI
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+$env:API_URL = "http://127.0.0.1:8000"
+streamlit run .\viet_qa\src\ui\app.py
+```
+
+Sau khi chạy:
+
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+- Streamlit UI: `http://127.0.0.1:8501`
+
+### Điều gì xảy ra khi backend khởi động
+
+Ngay khi API start, hàm `lifespan` trong `viet_qa/src/api/main.py` sẽ:
+
+1. tải dataset `ViSpanExtractQA`
+2. gom tất cả `context` duy nhất
+3. build chỉ mục BM25 trong RAM
+
+Vì vậy lần khởi động đầu có thể mất thêm thời gian, đặc biệt nếu mạng chậm hoặc dataset chưa được cache.
+
+### Kiểm tra backend đã sẵn sàng
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8000/health
+```
+
+Kết quả mong đợi sẽ có dạng:
+
+```json
+{
+  "status": "ok",
+  "models_loaded": [],
+  "retriever_ready": true,
+  "total_contexts": 12345
+}
+```
+
+### Gọi thử API hỏi đáp
+
+PowerShell:
+
+```powershell
+$body = @{
+  question   = "Ai là hiệu trưởng đầu tiên của Đại học Bách khoa Hà Nội?"
+  top_k      = 3
+  model_type = "extractive"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8000/ask `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+`model_type` hỗ trợ:
+
+- `extractive`
+- `generative`
+
+## 7. Chạy bằng Docker
+
+### Chạy toàn bộ stack
+
+```powershell
+docker compose up --build
+```
+
+Sau khi container chạy xong:
+
+- API: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
+- UI: `http://localhost:8501`
+
+### Chạy riêng từng service
+
+Chỉ backend:
+
+```powershell
+docker compose up --build api
+```
+
+Chỉ frontend:
+
+```powershell
+docker compose up --build ui
+```
+
+Lưu ý:
+
+- `docker-compose.yml` đang mount mã nguồn vào container bằng volume, nên thay đổi code local sẽ phản ánh vào container.
+- Ở lần build đầu, Docker sẽ cài toàn bộ dependency Python nên mất thời gian hơn.
+
+## 8. Huấn luyện mô hình extractive
+
+Chạy script fine-tune:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+py .\viet_qa\src\train\train_extractive.py
 ```
 
 Script này sẽ:
 
-- tải file từ Google Drive bằng `gdown`
-- dùng file ID: `1viAih2eZk7X8C1BO7YW4zh_fusDfrzcA`
-- giải nén vào thư mục:
+- tải dataset train/validation
+- tiền xử lý đáp án về dạng span hợp lệ
+- tokenize bằng `xlm-roberta-base`
+- huấn luyện với Hugging Face `Trainer`
+- lưu checkpoint vào `viet_qa/src/checkpoints/extractive`
 
-```text
-src/viet_qa/checkpoints/extractive
-```
+Hyperparameter chính đang được cấu hình trong `viet_qa/src/config/train_config.py`:
 
-### Link model gốc
+- backbone: `xlm-roberta-base`
+- max sequence length: `448`
+- stride: `160`
+- learning rate: `2e-5`
+- batch size: `4`
+- epoch: `4`
 
-```text
-https://drive.google.com/file/d/1viAih2eZk7X8C1BO7YW4zh_fusDfrzcA/view?usp=drive_link
-```
+## 9. Đánh giá mô hình
 
-## ĐỪNG TẢI MODEL NÀY VỀ TỪ LINK DRIVE TRÊN, SẮP TỚI SẼ UPDATE MODEL MỚI LÊN!!!
-
-### Nếu tải bằng script bị lỗi
-
-Một số nguyên nhân thường gặp:
-
-- Kết nối mạng bị gián đoạn.
-- Máy chưa cài đủ dependency trong `requirements.txt`.
-
-Khi đó bạn có thể:
-
-1. tải file zip thủ công từ link Drive ở trên
-2. giải nén vào đúng thư mục:
-
-```text
-src/viet_qa/checkpoints/extractive
-```
-
-> Sau khi giải nén xong, thư mục checkpoint phải chứa các file model/tokenizer của Hugging Face để `AutoTokenizer.from_pretrained(...)` và `AutoModelForQuestionAnswering.from_pretrained(...)` đọc được.
-
----
-
-## 6. Chạy hệ thống local
-
-### 6.1. Thiết lập `PYTHONPATH`
-
-Để import package ổn định, `PYTHONPATH` phải trỏ tới thư mục chứa package `viet_qa`, tức là thư mục `src`.
-
-Nếu bạn đang đứng trong thư mục `viet_qa/`:
-
-#### Windows (CMD)
-
-```bash
-set PYTHONPATH=%cd%\src
-```
-
-#### Windows (PowerShell)
+### Đánh giá checkpoint extractive đã train
 
 ```powershell
-$env:PYTHONPATH = "$PWD\src"
+.\.venv\Scripts\Activate.ps1
+py .\viet_qa\src\train\eval_extractive.py --model_path .\viet_qa\src\checkpoints\extractive --samples 100
 ```
 
-#### Linux / macOS
+### Đánh giá 2 chế độ reader bằng script tổng quát
 
-```bash
-export PYTHONPATH="$(pwd)/src"
-```
-
-Nếu bạn đang đứng ở repo gốc:
-
-#### Windows (CMD)
-
-```bash
-set PYTHONPATH=%cd%\viet_qa\src
-```
-
-#### Windows (PowerShell)
+Extractive:
 
 ```powershell
-$env:PYTHONPATH = "$PWD\viet_qa\src"
+py .\viet_qa\src\eval\run_evaluation.py --model_type extractive --samples 100
 ```
 
-#### Linux / macOS
+Generative:
 
-```bash
-export PYTHONPATH="$(pwd)/viet_qa/src"
+```powershell
+py .\viet_qa\src\eval\run_evaluation.py --model_type generative --samples 20
 ```
 
----
+Khuyến nghị dùng số mẫu nhỏ hơn cho `generative` nếu máy chỉ có CPU.
 
-### 6.2. Chạy backend FastAPI
+## 10. Vẽ biểu đồ loss sau huấn luyện
 
-```bash
-python -m uvicorn viet_qa.api.main:app --reload --port 8000
+```powershell
+py .\plot_loss.py
 ```
 
-Sau khi chạy thành công:
+Script sẽ:
 
-- API: `http://localhost:8000`
-- Swagger Docs: `http://localhost:8000/docs`
+- tìm `trainer_state.json` trong thư mục checkpoint
+- sinh bảng loss theo epoch
+- lưu `loss_report.md`
+- lưu ảnh `loss_chart.png`
 
-### Kiểm tra nhanh backend
+## 11. Kiểm thử
 
-Mở trình duyệt hoặc dùng curl:
+Sau khi cài thêm dependency test:
 
-```bash
-curl http://localhost:8000/health
+```powershell
+py -m pytest -q
 ```
 
----
+Hai nhóm test hiện có:
 
-### 6.3. Chạy frontend Streamlit
+- `viet_qa/tests/test_preprocess.py`: kiểm tra tiền xử lý span
+- `viet_qa/tests/test_api.py`: smoke test cho API
 
-Mở terminal mới, kích hoạt lại môi trường ảo rồi chạy:
-
-```bash
-streamlit run src/viet_qa/ui/app.py
-```
-
-Nếu bạn đang đứng ở repo gốc thì dùng:
-
-```bash
-streamlit run viet_qa/src/viet_qa/ui/app.py
-```
-
-Giao diện thường mở tại:
-
-```text
-http://localhost:8501
-```
-
-UI hiện cho phép:
-
-- nhập câu hỏi tiếng Việt
-- chọn `extractive` hoặc `generative`
-- gọi endpoint `/ask`
-- hiển thị câu trả lời tốt nhất, điểm số và các candidate context
-
----
-
-## 7. Chạy bằng Docker Compose
-
-Nếu bạn muốn khởi động toàn bộ hệ thống bằng container:
-
-```bash
-docker-compose up --build
-```
-
-Docker Compose hiện cấu hình:
-
-- service `api` chạy trên port `8000`
-- service `ui` chạy trên port `8501`
-- UI gọi backend qua biến môi trường `API_URL=http://api:8000`
-
----
-
-## 8. Các endpoint chính
+## 12. API chính
 
 ### `GET /health`
 
-Kiểm tra trạng thái hệ thống:
-
-- backend đã chạy chưa
-- model nào đã được load
-- retriever đã sẵn sàng chưa
-- số lượng context đã index
+Kiểm tra tình trạng server, model đã nạp hay chưa, retriever đã build xong chưa.
 
 ### `POST /ask`
 
-Endpoint chính cho bài toán **open-domain QA**.
+Endpoint chính cho bài toán open-domain QA.
 
-Ví dụ request:
+Request:
 
 ```json
 {
-  "question": "Hà Nội nằm ở đâu?",
+  "question": "Ai là hiệu trưởng đầu tiên của Đại học Bách khoa Hà Nội?",
   "top_k": 3,
   "model_type": "extractive"
 }
 ```
 
-Gợi ý giá trị `model_type`:
-
-- `extractive`
-- `generative`
-
 ### `POST /predict/extractive`
 
-Dự đoán với mô hình extractive khi bạn đã có sẵn `question` và `context`.
+Suy luận extractive trên một `context` cụ thể.
 
 ### `POST /predict/generative`
 
-Dự đoán với mô hình generative khi bạn đã có sẵn `question` và `context`.
+Suy luận generative trên một `context` cụ thể.
 
 ### `POST /compare`
 
-So sánh đầu ra giữa hai mô hình trên cùng một câu hỏi/ngữ cảnh.
+Chạy song song extractive và generative trên cùng một câu hỏi/ngữ cảnh để so sánh.
 
----
+### `POST /evaluate`
 
-## 9. Huấn luyện mô hình Extractive QA
+Đánh giá nhanh mô hình trên tập validation từ API.
 
-Pipeline train extractive hiện dùng cấu hình trong `src/viet_qa/config/train_config.py`:
+## 13. Hiệu năng và artifact hiện có
 
-- extractive backbone: `xlm-roberta-base`
-- `MAX_SEQ_LENGTH = 448`
-- `STRIDE = 160`
-- `LEARNING_RATE = 2e-5`
-- `NUM_EPOCHS = 4`
-- `BATCH_SIZE = 4`
-- output checkpoint: `src/viet_qa/checkpoints/extractive`
+Repo hiện có sẵn:
 
-Chạy train:
+- checkpoint extractive đã train
+- `loss_chart.png`
+- `loss_report.md`
 
-```bash
-python -m viet_qa.train.train_extractive
+Bảng loss hiện tại:
+
+| Epoch | Train Loss | Validation Loss |
+|-------|------------|-----------------|
+| 0 | 3.2785 | N/A |
+| 1 | 1.5974 | 1.3817 |
+| 2 | 1.1849 | 1.3290 |
+| 3 | 0.9832 | 1.3103 |
+| 4 | 0.7578 | 1.4300 |
+
+## 14. Lỗi thường gặp
+
+### `ModuleNotFoundError: No module named 'viet_qa'`
+
+Hãy chạy backend bằng đúng lệnh:
+
+```powershell
+uvicorn viet_qa.api.main:app --app-dir .\viet_qa\src --host 0.0.0.0 --port 8000 --reload
 ```
 
-Script train sẽ:
+Hoặc chạy các script train/eval bằng đúng path trong README này.
 
-- load dataset QA
-- preprocess theo kiểu sliding window cho extractive QA
-- fine-tune mô hình
-- lưu checkpoint cuối cùng vào thư mục checkpoint local
+### Download Kaggle model báo lỗi xác thực
 
----
+Hãy kiểm tra một trong hai cách sau:
 
-## 10. Đánh giá và Phân tích Mô hình
+- file `C:\Users\<TEN_USER>\.kaggle\kaggle.json`
+- biến môi trường `KAGGLE_API_TOKEN`
 
-### 10.1. Đánh giá mô hình Extractive QA
-Sau khi đã có model local, kiểm tra điểm Exact Match (EM) và F1 trên tập validation:
+Bạn có thể lấy token tại:
 
-```bash
-python -m viet_qa.train.eval_extractive --model_path "src/viet_qa/checkpoints/extractive" --samples 5000
+`https://www.kaggle.com/settings`
+
+### Download Kaggle model báo sai handle
+
+Nguyên nhân là link `https://www.kaggle.com/models/huynguyen199/vietnamese-open-domain` chỉ là model page tổng, trong khi Kaggle download handle cần đủ:
+
+`<owner>/<model>/<framework>/<variation>`
+
+Khi đó, hãy mở đúng variation trên Kaggle rồi chạy lại với:
+
+```powershell
+py .\viet_qa\src\utils\download_kaggle_model.py --model-handle "huynguyen199/vietnamese-open-domain/<framework>/<variation>" --force
 ```
 
-### 10.2. Đánh giá mô hình Generative QA
-Để xem mô hình sinh ngôn ngữ lớn đọc hiểu như thế nào:
+### API khởi động lâu
 
-```bash
-python src/viet_qa/eval/run_evaluation.py --model_type generative --samples 500
+Nguyên nhân thường là:
+
+- đang tải dataset lần đầu
+- đang build BM25 index
+- máy đang chạy trên CPU chậm
+
+### Chế độ `generative` trả lời chậm
+
+Điều này là bình thường nếu bạn:
+
+- chạy bằng CPU
+- chưa có cache model
+- dùng `Qwen2.5-1.5B-Instruct` lần đầu
+
+Nếu chỉ cần demo nhanh, hãy dùng `extractive`.
+
+### PowerShell không cho activate `.venv`
+
+Chạy:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
 ```
 
-### 10.3. Đồ thị quá trình rèn luyện (Learning Curve)
-Sau khi train xong, bạn có thể xuất báo cáo đồ thị Train/Validation Loss thông qua file Log sinh ra ở trên Kaggle bằng lệnh:
+### Port `8000` hoặc `8501` đã bị chiếm
 
-```bash
-python plot_loss.py
-```
-> Script sẽ tự động sinh file `loss_report.md` và `loss_chart.png` dùng trực tiếp cho báo cáo khóa luận.
+Đổi port khi chạy:
 
-### 10.4. Khảo sát dữ liệu thô
-Sử dụng script sau để lấy bảng thống kê kích thước context, độ rải rác câu hỏi (phục vụ lấy mốc 448 Token):
-
-```bash
-python generate_stats.py
+```powershell
+uvicorn viet_qa.api.main:app --app-dir .\viet_qa\src --host 0.0.0.0 --port 8001 --reload
+streamlit run .\viet_qa\src\ui\app.py --server.port 8502
 ```
 
----
+## 15. Ghi chú triển khai
 
-## 11. Chạy test
-
-```bash
-pip install pytest httpx
-pytest tests/
-```
-
-Nếu gặp lỗi import, hãy chắc chắn rằng bạn đã thiết lập `PYTHONPATH` như ở phần trên.
-
----
-
-## 12. Một số lỗi thường gặp
-
-### 1. Không load được model extractive
-
-Nguyên nhân phổ biến:
-
-- chưa chạy `download_weights.py`
-- giải nén model sai thư mục
-- checkpoint chưa đầy đủ file tokenizer/model
-
-Cách xử lý:
-
-- kiểm tra lại thư mục `src/viet_qa/checkpoints/extractive`
-- chạy lại script tải weights
-- nếu cần, xoá thư mục cũ rồi tải lại
-
-### 2. Streamlit không kết nối được backend
-
-Hãy chắc chắn backend đang chạy tại:
-
-```text
-http://localhost:8000
-```
-
-Nếu frontend báo lỗi kết nối, kiểm tra lại lệnh:
-
-```bash
-python -m uvicorn viet_qa.api.main:app --reload --port 8000
-```
-
-### 3. Lỗi import module `viet_qa`
-
-Đây thường là do chưa set `PYTHONPATH`.
-
-Hãy chạy lại phần thiết lập:
-
-```bash
-set PYTHONPATH=%cd%\src
-```
-
-hoặc:
-
-```bash
-export PYTHONPATH="$(pwd)/src"
-```
-
-Nếu bạn đang chạy từ repo gốc thì dùng:
-
-```bash
-set PYTHONPATH=%cd%\viet_qa\src
-```
-
-### 4. Lỗi khi tải weights từ Google Drive
-
-Script tải model có ghi rõ: hãy đảm bảo link Google Drive đã được cấp quyền truy cập công khai.
-
----
-
-## 13. Gợi ý phát triển thêm
-
-Một số hướng nâng cấp tiếp theo cho dự án:
-
-- thêm benchmark rõ ràng giữa extractive và generative
-- bổ sung logging và tracing cho từng request
-- cache retriever index để giảm thời gian khởi động
-- thêm endpoint batch inference
-- đóng gói checkpoint và config thành release artifact
-- triển khai production bằng Nginx + Docker Compose / Kubernetes
-
----
-
+- Backend dùng lazy loading cho model reader, nên model chỉ được nạp khi endpoint cần đến.
+- Retriever được build một lần khi server khởi động.
+- Checkpoint extractive là lựa chọn phù hợp nhất nếu bạn cần inference ổn định và nhẹ hơn.
+- Reader generative phù hợp hơn cho các câu trả lời cần diễn đạt mềm hơn, đổi lại chi phí suy luận cao hơn.
